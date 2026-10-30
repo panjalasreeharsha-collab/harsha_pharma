@@ -1,0 +1,6 @@
+.env
+database.env
+.venv/
+__pycache__/
+*.py[cod]
+receipts/*.txt
