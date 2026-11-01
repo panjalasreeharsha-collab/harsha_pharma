@@ -26,6 +26,10 @@ from flask import (
 
 from services.account_service import authenticate_shop, create_shop_account
 from services.billing_service import get_invoice_receipt, process_dispatch_bill
+from services.customer_billing_service import (
+    create_customer_invoice,
+    get_customer_invoice,
+)
 from services.inventory_service import (
     add_batch_stock,
     add_medicine,
@@ -278,11 +282,22 @@ def stock_create() -> str:
                 quantity = int(request.form.get("quantity", ""))
                 mrp = Decimal(request.form.get("mrp", ""))
                 purchase_price = Decimal(request.form.get("purchase_price", ""))
+                manufacturing_date_text = request.form.get("manufacturing_date", "")
+                manufacturing_date = (
+                    date.fromisoformat(manufacturing_date_text)
+                    if manufacturing_date_text
+                    else None
+                )
+                gst_percent = Decimal(request.form.get("gst_percent", ""))
+                discount_percent = Decimal(request.form.get("discount_percent", ""))
                 medicine_id = int(request.form.get("medicine_id", ""))
             except (InvalidOperation, ValueError):
-                raise ValueError("Enter valid medicine, date, quantity, and prices.")
-            if not mrp.is_finite() or not purchase_price.is_finite():
-                raise ValueError("Prices must be finite decimal amounts.")
+                raise ValueError("Enter valid medicine, dates, quantity, and prices.")
+            if any(
+                not value.is_finite()
+                for value in (mrp, purchase_price, gst_percent, discount_percent)
+            ):
+                raise ValueError("Prices and percentages must be finite numbers.")
             return add_batch_stock(
                 _shop_id(),
                 medicine_id,
@@ -291,6 +306,9 @@ def stock_create() -> str:
                 quantity,
                 mrp,
                 purchase_price,
+                manufacturing_date,
+                gst_percent,
+                discount_percent,
             )
 
         _handle_operation(create, "Stock batch added.")
@@ -387,6 +405,63 @@ def dispatch() -> str:
     return render_template("dispatch_form.html", medicines=medicines.values())
 
 
+@app.route("/sales/new", methods=["GET", "POST"])
+def customer_sale() -> str | Response:
+    try:
+        stock_levels = get_stock_levels(_shop_id())
+    except mysql.connector.Error:
+        app.logger.exception("Could not load medicines for customer billing")
+        abort(503, description="Database unavailable. Check the server logs.")
+
+    medicines = {
+        int(row["medicine_id"]): row
+        for row in stock_levels
+        if row["batch_id"] is not None
+        and int(row["quantity"]) > 0
+        and not row["is_expired"]
+    }
+
+    if request.method == "POST":
+        try:
+            medicine_ids = request.form.getlist("medicine_id")
+            quantities = request.form.getlist("quantity")
+            if len(medicine_ids) != len(quantities):
+                raise ValueError("Each medicine must have a matching quantity.")
+            cart_items = []
+            for medicine_id_text, quantity_text in zip(medicine_ids, quantities):
+                if not medicine_id_text and not quantity_text:
+                    continue
+                try:
+                    cart_items.append(
+                        {
+                            "medicine_id": int(medicine_id_text),
+                            "quantity": int(quantity_text),
+                        }
+                    )
+                except ValueError as exc:
+                    raise ValueError(
+                        "Choose a medicine and enter a whole-number quantity."
+                    ) from exc
+            invoice_id = create_customer_invoice(
+                _shop_id(),
+                request.form.get("customer_name", ""),
+                request.form.get("customer_phone", ""),
+                request.form.get("customer_address", ""),
+                cart_items,
+            )
+            return redirect(url_for("customer_invoice_view", invoice_id=invoice_id))
+        except ValueError as exc:
+            flash(str(exc), "error")
+        except mysql.connector.Error:
+            app.logger.exception("Could not create customer invoice")
+            flash("The customer bill failed because of a database error.", "error")
+        except RuntimeError as exc:
+            app.logger.exception("Could not complete customer sale")
+            flash(str(exc), "error")
+
+    return render_template("customer_sale_form.html", medicines=medicines.values())
+
+
 @app.get("/invoices/<int:invoice_id>")
 def invoice_view(invoice_id: int) -> str:
     try:
@@ -397,3 +472,15 @@ def invoice_view(invoice_id: int) -> str:
         app.logger.exception("Could not load invoice %s", invoice_id)
         abort(503, description="Database unavailable. Check the server logs.")
     return render_template("receipt.html", receipt=receipt)
+
+
+@app.get("/customer-invoices/<int:invoice_id>")
+def customer_invoice_view(invoice_id: int) -> str:
+    try:
+        invoice = get_customer_invoice(invoice_id, _shop_id())
+    except ValueError:
+        abort(404)
+    except mysql.connector.Error:
+        app.logger.exception("Could not load customer invoice %s", invoice_id)
+        abort(503, description="Database unavailable. Check the server logs.")
+    return render_template("customer_receipt.html", invoice=invoice)

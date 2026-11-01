@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}New customer bill · Medical Dispatch{% endblock %}
+{% block content %}
+  <h1>New customer bill</h1>
+  <p class="hint">Retail bills use each batch's MRP, discount, and GST. Stock is deducted FEFO.</p>
+  {% if medicines %}
+    <form method="post" class="form-card wide-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Customer name
+        <input name="customer_name" required maxlength="200" autocomplete="name">
+      </label>
+      <label>Mobile number
+        <input name="customer_phone" maxlength="30" autocomplete="tel">
+      </label>
+      <label>Address
+        <input name="customer_address" maxlength="500" autocomplete="street-address">
+      </label>
+      <h2>Medicines</h2>
+      <div class="table-wrap">
+        <table class="sale-entry-table">
+          <thead><tr><th>Medicine</th><th>Quantity</th></tr></thead>
+          <tbody>
+            {% for row in range(8) %}
+              <tr>
+                <td>
+                  <select name="medicine_id" aria-label="Medicine {{ row + 1 }}">
+                    <option value="">Choose medicine</option>
+                    {% for medicine in medicines %}
+                      <option value="{{ medicine.medicine_id }}">{{ medicine.brand_name }} — {{ medicine.generic_name }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td><input type="number" name="quantity" min="1" step="1" aria-label="Quantity for row {{ row + 1 }}"></td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <button type="submit">Create customer bill</button>
+    </form>
+  {% else %}
+    <p class="empty">Add a medicine and non-expired stock batch before creating a customer bill.</p>
+  {% endif %}
+{% endblock %}

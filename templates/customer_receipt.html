@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Customer bill #{{ invoice.invoice_id }} · Medical Dispatch{% endblock %}
+{% block content %}
+  <div class="page-heading print-controls">
+    <div><h1>Customer bill #{{ invoice.invoice_id }}</h1></div>
+    <button type="button" onclick="window.print()">Print bill</button>
+  </div>
+  <section class="customer-receipt">
+    <h2>{{ current_shop_name() }}</h2>
+    <p><strong>Bill number:</strong> {{ invoice.invoice_id }}</p>
+    <p><strong>Date:</strong> {{ invoice.sale_date }}</p>
+    <p><strong>Customer:</strong> {{ invoice.customer_name }}</p>
+    {% if invoice.customer_phone %}<p><strong>Mobile:</strong> {{ invoice.customer_phone }}</p>{% endif %}
+    {% if invoice.customer_address %}<p><strong>Address:</strong> {{ invoice.customer_address }}</p>{% endif %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Medicine</th><th>Batch</th><th>MFD</th><th>Expiry</th>
+            <th>Qty</th><th>MRP</th><th>Discount</th><th>GST</th>
+            <th>Rate + GST</th><th>Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in invoice["items"] %}
+            <tr>
+              <td>{{ item.brand_name }}</td>
+              <td>{{ item.batch_number }}</td>
+              <td>{{ item.manufacturing_date or "—" }}</td>
+              <td>{{ item.expiry_date }}</td>
+              <td>{{ item.quantity_sold }}</td>
+              <td>{{ "%.2f"|format(item.mrp) }}</td>
+              <td>{{ "%.2f"|format(item.discount_percent) }}%</td>
+              <td>{{ "%.2f"|format(item.gst_percent) }}%</td>
+              <td>{{ "%.2f"|format(item.final_unit_price) }}</td>
+              <td>{{ "%.2f"|format(item.line_total) }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <dl class="bill-totals">
+      <dt>Subtotal (MRP)</dt><dd>{{ "%.2f"|format(invoice.subtotal) }}</dd>
+      <dt>Discount</dt><dd>-{{ "%.2f"|format(invoice.total_discount) }}</dd>
+      <dt>GST</dt><dd>{{ "%.2f"|format(invoice.total_tax) }}</dd>
+      <dt class="grand-total">Grand total</dt><dd class="grand-total">{{ "%.2f"|format(invoice.total_amount) }}</dd>
+    </dl>
+    <p class="hint">GST is calculated on the discounted amount.</p>
+  </section>
+{% endblock %}

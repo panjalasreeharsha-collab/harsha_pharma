@@ -105,6 +105,9 @@ def add_batch_stock(
     quantity: int,
     mrp: Decimal,
     purchase_price: Decimal,
+    manufacturing_date: date | None = None,
+    gst_percent: Decimal = Decimal("0.00"),
+    discount_percent: Decimal = Decimal("0.00"),
 ) -> int:
     """Add a batch for a medicine and return the generated batch ID."""
     if shop_id <= 0 or medicine_id <= 0:
@@ -113,8 +116,22 @@ def add_batch_stock(
         raise ValueError("Batch number must not be empty.")
     if quantity <= 0:
         raise ValueError("Batch quantity must be greater than zero.")
+    if not mrp.is_finite() or not purchase_price.is_finite():
+        raise ValueError("Prices must be finite decimal amounts.")
     if mrp < 0 or purchase_price < 0:
         raise ValueError("Prices cannot be negative.")
+    if manufacturing_date is not None and manufacturing_date > expiry_date:
+        raise ValueError("Manufacturing date cannot be after the expiry date.")
+    if (
+        not gst_percent.is_finite()
+        or not Decimal("0") <= gst_percent <= Decimal("100")
+    ):
+        raise ValueError("GST must be between 0 and 100 percent.")
+    if (
+        not discount_percent.is_finite()
+        or not Decimal("0") <= discount_percent <= Decimal("100")
+    ):
+        raise ValueError("Discount must be between 0 and 100 percent.")
 
     connection = get_connection()
     try:
@@ -129,16 +146,22 @@ def add_batch_stock(
             cursor.execute(
                 """
                 INSERT INTO inventory_batches
-                    (medicine_id, batch_number, expiry_date, quantity, mrp, purchase_price)
-                VALUES (%s, %s, %s, %s, %s, %s)
+                    (
+                        medicine_id, batch_number, manufacturing_date, expiry_date,
+                        quantity, mrp, purchase_price, gst_percent, discount_percent
+                    )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     medicine_id,
                     batch_number,
+                    manufacturing_date,
                     expiry_date,
                     quantity,
                     mrp,
                     purchase_price,
+                    gst_percent,
+                    discount_percent,
                 ),
             )
             batch_id = int(cursor.lastrowid)
@@ -171,9 +194,13 @@ def get_stock_levels(shop_id: int) -> list[dict[str, object]]:
                     m.medicine_category,
                     b.batch_id,
                     b.batch_number,
+                    b.manufacturing_date,
                     b.expiry_date,
                     b.quantity,
                     b.mrp,
+                    b.purchase_price,
+                    b.gst_percent,
+                    b.discount_percent,
                     (b.expiry_date < CURRENT_DATE) AS is_expired
                 FROM medicines AS m
                 LEFT JOIN inventory_batches AS b ON b.medicine_id = m.medicine_id

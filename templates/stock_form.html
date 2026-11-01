@@ -2,23 +2,42 @@
 {% block title %}Add stock · Medical Dispatch{% endblock %}
 {% block content %}
   <h1>Add stock batch</h1>
+  <p class="hint">Enter one received batch. GST is calculated after the batch discount on customer bills.</p>
   {% if medicines %}
-    <form method="post" class="form-card">
+    <form method="post">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <label>Medicine
-        <select name="medicine_id" required>
-          <option value="">Choose medicine</option>
-          {% for medicine in medicines %}
-            <option value="{{ medicine.medicine_id }}">{{ medicine.brand_name }} (ID {{ medicine.medicine_id }})</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label>Batch number<input name="batch_number" required maxlength="100"></label>
-      <label>Expiry date<input type="date" name="expiry_date" required></label>
-      <label>Quantity<input type="number" name="quantity" min="1" step="1" required></label>
-      <label>MRP per unit<input type="number" name="mrp" min="0" step="0.01" required></label>
-      <label>Purchase price per unit<input type="number" name="purchase_price" min="0" step="0.01" required></label>
-      <button type="submit">Add batch</button>
+      <div class="table-wrap stock-entry-wrap">
+        <table class="stock-entry-table">
+          <thead>
+            <tr>
+              <th>Medicine</th><th>Batch number</th><th>MFD</th><th>Expiry</th>
+              <th>Quantity</th><th>MRP / unit</th><th>Purchase / unit</th>
+              <th>GST %</th><th>Discount %</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>
+                <select name="medicine_id" required>
+                  <option value="">Choose medicine</option>
+                  {% for medicine in medicines %}
+                    <option value="{{ medicine.medicine_id }}">{{ medicine.brand_name }} (ID {{ medicine.medicine_id }})</option>
+                  {% endfor %}
+                </select>
+              </td>
+              <td><input name="batch_number" required maxlength="100" aria-label="Batch number"></td>
+              <td><input type="date" name="manufacturing_date" aria-label="Manufacturing date"></td>
+              <td><input type="date" name="expiry_date" required aria-label="Expiry date"></td>
+              <td><input type="number" name="quantity" min="1" step="1" required aria-label="Quantity"></td>
+              <td><input type="number" name="mrp" min="0" step="0.01" required aria-label="MRP per unit"></td>
+              <td><input type="number" name="purchase_price" min="0" step="0.01" required aria-label="Purchase price per unit"></td>
+              <td><input type="number" name="gst_percent" min="0" max="100" step="0.01" value="0" required aria-label="GST percentage"></td>
+              <td><input type="number" name="discount_percent" min="0" max="100" step="0.01" value="0" required aria-label="Discount percentage"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <button type="submit" class="form-submit">Add batch</button>
     </form>
   {% else %}
     <p class="empty">Add a medicine before adding its stock.</p>

@@ -4,17 +4,39 @@
   <div class="page-heading">
     <div>
       <h1>Inventory</h1>
-      <p>Stock is dispatched from the earliest-expiring eligible batch first.</p>
+      <p>Track batch details, add stock, and create customer or shop bills.</p>
     </div>
-    <a class="button" href="{{ url_for('dispatch') }}">Create dispatch bill</a>
   </div>
+  <section class="action-grid" aria-label="Inventory actions">
+    <a class="action-card" href="{{ url_for('medicine_create') }}">
+      <strong>Add medicine</strong>
+      <span>Create a medicine record before receiving a new product.</span>
+    </a>
+    <a class="action-card" href="{{ url_for('stock_create') }}">
+      <strong>Add stock</strong>
+      <span>Enter batch, dates, MRP, GST, discount, and quantity.</span>
+    </a>
+    <a class="action-card" href="{{ url_for('customer_sale') }}">
+      <strong>New customer bill</strong>
+      <span>Sell medicines to a customer and prepare a printable receipt.</span>
+    </a>
+    <a class="action-card" href="{{ url_for('dispatch') }}">
+      <strong>New shop dispatch</strong>
+      <span>Create a separate FEFO dispatch invoice for a medical shop.</span>
+    </a>
+    <a class="action-card secondary-action" href="{{ url_for('category_update') }}">
+      <strong>Set medicine category</strong>
+      <span>Update the standard or generic category used for shop dispatch.</span>
+    </a>
+  </section>
   {% if stock_levels %}
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
             <th>ID</th><th>Medicine</th><th>Generic name</th><th>Category</th>
-            <th>Unit</th><th>Batch</th><th>Expiry</th><th>Quantity</th><th>MRP</th>
+            <th>Unit</th><th>Batch</th><th>MFD</th><th>Expiry</th><th>Quantity</th>
+            <th>MRP</th><th>GST %</th><th>Discount %</th>
           </tr>
         </thead>
         <tbody>
@@ -26,9 +48,12 @@
               <td>{{ item.medicine_category or "Unassigned" }}</td>
               <td>{{ item.unit_type }}</td>
               <td>{{ item.batch_number or "—" }}</td>
+              <td>{{ item.manufacturing_date or "—" }}</td>
               <td>{{ item.expiry_date or "—" }}</td>
               <td>{{ item.quantity if item.quantity is not none else "—" }}</td>
               <td>{{ "%.2f"|format(item.mrp) if item.mrp is not none else "—" }}</td>
+              <td>{{ "%.2f"|format(item.gst_percent) if item.gst_percent is not none else "—" }}</td>
+              <td>{{ "%.2f"|format(item.discount_percent) if item.discount_percent is not none else "—" }}</td>
             </tr>
           {% endfor %}
         </tbody>

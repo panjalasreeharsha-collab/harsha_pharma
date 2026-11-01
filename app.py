@@ -96,10 +96,20 @@ def _add_stock() -> None:
         shop_id = _authenticate_cli_shop()
         medicine_id = _read_positive_integer("Medicine ID: ")
         batch_number = input("Batch number: ").strip()
+        manufacturing_date_text = input(
+            "Manufacturing date (YYYY-MM-DD, blank if unknown): "
+        ).strip()
+        manufacturing_date = (
+            date.fromisoformat(manufacturing_date_text)
+            if manufacturing_date_text
+            else None
+        )
         expiry_date = date.fromisoformat(input("Expiry date (YYYY-MM-DD): ").strip())
         quantity = _read_positive_integer("Quantity: ")
         mrp = _read_price("Selling rate / MRP per unit: ")
         purchase_price = _read_price("Purchase price per unit: ")
+        gst_percent = _read_price("GST percentage: ")
+        discount_percent = _read_price("Discount percentage: ")
         batch_id = add_batch_stock(
             shop_id,
             medicine_id,
@@ -108,6 +118,9 @@ def _add_stock() -> None:
             quantity,
             mrp,
             purchase_price,
+            manufacturing_date,
+            gst_percent,
+            discount_percent,
         )
         typer.echo(f"Stock batch added with ID {batch_id}.")
     except (ValueError, RuntimeError, MySQLConnectorError) as exc:
@@ -126,18 +139,23 @@ def _view_stock() -> None:
 
         typer.echo(
             f"{'Medicine ID':>11}  {'Medicine':<24} {'Category':<9} {'Batch':<16} "
-            f"{'Expiry':<12} {'Qty':>8} {'MRP':>10} Status"
+            f"{'MFD':<12} {'Expiry':<12} {'Qty':>8} {'MRP':>10} "
+            f"{'GST':>7} {'Disc':>7} Status"
         )
         for row in stock_levels:
             batch_number = row["batch_number"] or "-"
+            mfd = row["manufacturing_date"].isoformat() if row["manufacturing_date"] else "-"
             expiry = row["expiry_date"].isoformat() if row["expiry_date"] else "-"
             quantity = row["quantity"] if row["quantity"] is not None else "-"
             mrp = f"{row['mrp']:.2f}" if row["mrp"] is not None else "-"
+            gst = f"{row['gst_percent']:.2f}" if row["gst_percent"] is not None else "-"
+            discount = f"{row['discount_percent']:.2f}" if row["discount_percent"] is not None else "-"
             status = "EXPIRED" if row["is_expired"] else "OK"
             typer.echo(
                 f"{row['medicine_id']:>11}  {row['brand_name']:<24} "
                 f"{(row['medicine_category'] or 'UNSET'):<9} "
-                f"{batch_number:<16} {expiry:<12} {quantity:>8} {mrp:>10} {status}"
+                f"{batch_number:<16} {mfd:<12} {expiry:<12} {quantity:>8} "
+                f"{mrp:>10} {gst:>7} {discount:>7} {status}"
             )
     except (ValueError, RuntimeError, MySQLConnectorError) as exc:
         typer.echo(f"Error: {exc}")

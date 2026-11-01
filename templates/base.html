@@ -11,12 +11,8 @@
       <a class="brand" href="{{ url_for('index') }}">Medical Dispatch</a>
       {% if session.get("shop_id") %}
         <nav aria-label="Main navigation">
-          <span>{{ current_shop_name }}</span>
+          <span>{{ current_shop_name() }}</span>
           <a href="{{ url_for('index') }}">Stock</a>
-          <a href="{{ url_for('medicine_create') }}">Add medicine</a>
-          <a href="{{ url_for('stock_create') }}">Add stock</a>
-          <a href="{{ url_for('category_update') }}">Set category</a>
-          <a href="{{ url_for('dispatch') }}">New dispatch</a>
           <form method="post" action="{{ url_for('logout') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="link-button">Sign out</button>

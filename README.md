@@ -3,7 +3,8 @@
 A Python application backed by MySQL, with a local CLI and an authenticated
 browser interface. Dispatches consume unexpired inventory batches in First
 Expired, First Out (FEFO) order. Invoice creation, sale-item insertion, and
-stock deduction are committed or rolled back together.
+stock deduction are committed or rolled back together. The web interface
+supports separate pharmacy-dispatch invoices and customer retail bills.
 
 ## Setup
 
@@ -35,7 +36,8 @@ stock deduction are committed or rolled back together.
    independent shop accounts. The first shop to sign up claims existing
    unassigned medicines and invoices; subsequent shops only see their own
    records. Existing sale items retain their recorded rate and receive no
-   retroactive discount.
+   retroactive discount. Run `sql/migrations/003_add_retail_billing.sql` once
+   to add batch manufacturing/GST/discount details and retail customer bills.
 5. To use the local CLI, run `python app.py --help` to list the available
    commands. For example:
 
@@ -71,8 +73,8 @@ service uses the Flask WSGI application in `web_app.py` instead.
   `render.yaml`, `requirements.txt`, and `web_app.py`.
 - Set the health check path to `/healthz`. It checks that MySQL is reachable.
 - Make sure the configured remote database already has the tables from
-  `sql/schema.sql` (or both required migrations for an existing database) and
-  accepts connections from Render.
+  `sql/schema.sql` (or migrations 001, 002, and 003 in order for an existing
+  database) and accepts connections from Render.
 
 Each pharmacy signs in with its own email and password. Passwords are stored
 as hashes, shop inventory and invoices are isolated by account, and forms use
@@ -95,3 +97,17 @@ CSRF protection. Use the service over HTTPS.
 
 For application code, call
 `services.billing_service.process_dispatch_bill(shop_name, cart_items)`.
+
+## Customer retail bills
+
+- The inventory page provides main-content action cards for adding medicines
+  and stock, creating customer bills, and creating separate shop dispatches.
+- Each stock batch stores optional manufacturing date, expiry date, MRP,
+  purchase price, GST percentage, and discount percentage.
+- Customer bills record customer name, mobile number, address, bill date, and
+  batch-level line details. They deduct unexpired stock in FEFO order in the
+  same atomic transaction as invoice creation.
+- For retail bills, discount is applied to MRP first and GST is then added to
+  the discounted amount. The printable bill shows MRP, discount, GST, final
+  rate, batch dates, quantity, and grand total. Open the saved bill and click
+  **Print bill** to print it.
