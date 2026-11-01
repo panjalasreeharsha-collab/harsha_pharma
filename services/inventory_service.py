@@ -12,6 +12,7 @@ MedicineCategory = Literal["standard", "generic"]
 
 
 def add_medicine(
+    shop_id: int,
     brand_name: str,
     generic_name: str,
     manufacturer: str,
@@ -22,6 +23,8 @@ def add_medicine(
     values = (brand_name, generic_name, manufacturer, unit_type)
     if any(not value.strip() for value in values):
         raise ValueError("Medicine fields must not be empty.")
+    if shop_id <= 0:
+        raise ValueError("Shop ID must be a positive integer.")
     medicine_category = medicine_category.strip().lower()
     if medicine_category not in ("standard", "generic"):
         raise ValueError("Medicine category must be 'standard' or 'generic'.")
@@ -33,10 +36,10 @@ def add_medicine(
             cursor.execute(
                 """
                 INSERT INTO medicines
-                    (brand_name, generic_name, manufacturer, unit_type, medicine_category)
-                VALUES (%s, %s, %s, %s, %s)
+                    (shop_id, brand_name, generic_name, manufacturer, unit_type, medicine_category)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 """,
-                (*values, medicine_category),
+                (shop_id, *values, medicine_category),
             )
             medicine_id = int(cursor.lastrowid)
             connection.commit()
@@ -51,11 +54,12 @@ def add_medicine(
 
 
 def set_medicine_category(
+    shop_id: int,
     medicine_id: int,
     medicine_category: MedicineCategory,
 ) -> None:
     """Set or update a medicine's standard/generic billing category."""
-    if medicine_id <= 0:
+    if shop_id <= 0 or medicine_id <= 0:
         raise ValueError("Medicine ID must be a positive integer.")
     medicine_category = medicine_category.strip().lower()
     if medicine_category not in ("standard", "generic"):
@@ -66,14 +70,22 @@ def set_medicine_category(
         cursor = connection.cursor()
         try:
             cursor.execute(
-                "SELECT medicine_id FROM medicines WHERE medicine_id = %s",
-                (medicine_id,),
+                """
+                SELECT medicine_id
+                FROM medicines
+                WHERE medicine_id = %s AND shop_id = %s
+                """,
+                (medicine_id, shop_id),
             )
             if cursor.fetchone() is None:
                 raise ValueError(f"Medicine ID {medicine_id} was not found.")
             cursor.execute(
-                "UPDATE medicines SET medicine_category = %s WHERE medicine_id = %s",
-                (medicine_category, medicine_id),
+                """
+                UPDATE medicines
+                SET medicine_category = %s
+                WHERE medicine_id = %s AND shop_id = %s
+                """,
+                (medicine_category, medicine_id, shop_id),
             )
             connection.commit()
         except Exception:
@@ -86,6 +98,7 @@ def set_medicine_category(
 
 
 def add_batch_stock(
+    shop_id: int,
     medicine_id: int,
     batch_number: str,
     expiry_date: date,
@@ -94,7 +107,7 @@ def add_batch_stock(
     purchase_price: Decimal,
 ) -> int:
     """Add a batch for a medicine and return the generated batch ID."""
-    if medicine_id <= 0:
+    if shop_id <= 0 or medicine_id <= 0:
         raise ValueError("Medicine ID must be a positive integer.")
     if not batch_number.strip():
         raise ValueError("Batch number must not be empty.")
@@ -107,6 +120,12 @@ def add_batch_stock(
     try:
         cursor = connection.cursor()
         try:
+            cursor.execute(
+                "SELECT 1 FROM medicines WHERE medicine_id = %s AND shop_id = %s",
+                (medicine_id, shop_id),
+            )
+            if cursor.fetchone() is None:
+                raise ValueError(f"Medicine ID {medicine_id} was not found.")
             cursor.execute(
                 """
                 INSERT INTO inventory_batches
@@ -134,8 +153,10 @@ def add_batch_stock(
         connection.close()
 
 
-def get_stock_levels() -> list[dict[str, object]]:
-    """Return all batches, including expired and depleted stock for visibility."""
+def get_stock_levels(shop_id: int) -> list[dict[str, object]]:
+    """Return this shop's batches, including expired and depleted stock."""
+    if shop_id <= 0:
+        raise ValueError("Shop ID must be a positive integer.")
     connection = get_connection()
     try:
         cursor = connection.cursor(dictionary=True)
@@ -156,8 +177,10 @@ def get_stock_levels() -> list[dict[str, object]]:
                     (b.expiry_date < CURRENT_DATE) AS is_expired
                 FROM medicines AS m
                 LEFT JOIN inventory_batches AS b ON b.medicine_id = m.medicine_id
+                WHERE m.shop_id = %s
                 ORDER BY m.brand_name, b.expiry_date, b.batch_number
-                """
+                """,
+                (shop_id,),
             )
             return list(cursor.fetchall())
         finally:
@@ -166,9 +189,9 @@ def get_stock_levels() -> list[dict[str, object]]:
         connection.close()
 
 
-def check_stock_availability(medicine_id: int) -> int:
+def check_stock_availability(shop_id: int, medicine_id: int) -> int:
     """Return available units in non-expired batches for a medicine."""
-    if medicine_id <= 0:
+    if shop_id <= 0 or medicine_id <= 0:
         raise ValueError("Medicine ID must be a positive integer.")
 
     connection = get_connection()
@@ -178,12 +201,14 @@ def check_stock_availability(medicine_id: int) -> int:
             cursor.execute(
                 """
                 SELECT COALESCE(SUM(quantity), 0)
-                FROM inventory_batches
-                WHERE medicine_id = %s
-                  AND expiry_date >= CURRENT_DATE
-                  AND quantity > 0
+                FROM inventory_batches AS b
+                INNER JOIN medicines AS m ON m.medicine_id = b.medicine_id
+                WHERE b.medicine_id = %s
+                  AND m.shop_id = %s
+                  AND b.expiry_date >= CURRENT_DATE
+                  AND b.quantity > 0
                 """,
-                (medicine_id,),
+                (medicine_id, shop_id),
             )
             return int(cursor.fetchone()[0])
         finally:

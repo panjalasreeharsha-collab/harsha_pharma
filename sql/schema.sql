@@ -1,7 +1,30 @@
 -- Run this file against the database configured by MYSQL_DATABASE in .env.
 
+CREATE TABLE IF NOT EXISTS shops (
+    shop_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    shop_name VARCHAR(200) NOT NULL,
+    owner_name VARCHAR(150) NOT NULL,
+    email VARCHAR(254) NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (shop_id),
+    UNIQUE KEY uq_shops_email (email),
+    CONSTRAINT chk_shops_name CHECK (CHAR_LENGTH(TRIM(shop_name)) > 0),
+    CONSTRAINT chk_shops_owner CHECK (CHAR_LENGTH(TRIM(owner_name)) > 0)
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS tenant_bootstrap (
+    singleton_id TINYINT UNSIGNED NOT NULL,
+    legacy_claimed BOOLEAN NOT NULL DEFAULT FALSE,
+    PRIMARY KEY (singleton_id),
+    CONSTRAINT chk_tenant_bootstrap_singleton CHECK (singleton_id = 1)
+) ENGINE=InnoDB;
+
+INSERT IGNORE INTO tenant_bootstrap (singleton_id, legacy_claimed) VALUES (1, FALSE);
+
 CREATE TABLE IF NOT EXISTS medicines (
     medicine_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    shop_id BIGINT UNSIGNED NOT NULL,
     brand_name VARCHAR(150) NOT NULL,
     generic_name VARCHAR(150) NOT NULL,
     manufacturer VARCHAR(150) NOT NULL,
@@ -9,7 +32,11 @@ CREATE TABLE IF NOT EXISTS medicines (
     medicine_category ENUM('standard', 'generic') NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (medicine_id),
+    KEY idx_medicines_shop (shop_id),
     KEY idx_medicines_brand_name (brand_name),
+    CONSTRAINT fk_medicines_shop
+        FOREIGN KEY (shop_id) REFERENCES shops (shop_id)
+        ON UPDATE CASCADE ON DELETE RESTRICT,
     CONSTRAINT chk_medicines_brand_name CHECK (CHAR_LENGTH(TRIM(brand_name)) > 0),
     CONSTRAINT chk_medicines_unit_type CHECK (CHAR_LENGTH(TRIM(unit_type)) > 0)
 ) ENGINE=InnoDB;
@@ -34,11 +61,16 @@ CREATE TABLE IF NOT EXISTS inventory_batches (
 
 CREATE TABLE IF NOT EXISTS sales_invoices (
     invoice_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    shop_id BIGINT UNSIGNED NOT NULL,
     shop_name VARCHAR(200) NOT NULL,
     sale_date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     total_amount DECIMAL(14, 2) NOT NULL DEFAULT 0.00,
     PRIMARY KEY (invoice_id),
+    KEY idx_invoices_shop_date (shop_id, sale_date),
     KEY idx_invoices_sale_date (sale_date),
+    CONSTRAINT fk_invoices_shop
+        FOREIGN KEY (shop_id) REFERENCES shops (shop_id)
+        ON UPDATE CASCADE ON DELETE RESTRICT,
     CONSTRAINT chk_invoices_total CHECK (total_amount >= 0),
     CONSTRAINT chk_invoices_shop_name CHECK (CHAR_LENGTH(TRIM(shop_name)) > 0)
 ) ENGINE=InnoDB;

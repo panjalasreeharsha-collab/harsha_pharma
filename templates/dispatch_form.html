@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}New dispatch · Medical Dispatch{% endblock %}
+{% block content %}
+  <h1>Create dispatch bill</h1>
+  {% if medicines %}
+    <form method="post" class="form-card">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Medical shop name<input name="shop_name" required maxlength="200"></label>
+      <p class="hint">Leave unused medicine rows blank. Standard medicines receive 30% off MRP; generics receive 70% off.</p>
+      {% for row in range(5) %}
+        <fieldset class="cart-row">
+          <legend>Item {{ row + 1 }}</legend>
+          <label>Medicine
+            <select name="medicine_id">
+              <option value="">Choose medicine</option>
+              {% for medicine in medicines %}
+                <option value="{{ medicine.medicine_id }}">{{ medicine.brand_name }} — {{ medicine.medicine_category }} (ID {{ medicine.medicine_id }})</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>Quantity<input type="number" name="quantity" min="1" step="1"></label>
+        </fieldset>
+      {% endfor %}
+      <button type="submit">Create bill</button>
+    </form>
+  {% else %}
+    <p class="empty">Add and categorize a medicine before creating a dispatch.</p>
+  {% endif %}
+{% endblock %}

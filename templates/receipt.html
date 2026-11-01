@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}Dispatch receipt · Medical Dispatch{% endblock %}
+{% block content %}
+  <div class="page-heading">
+    <h1>Dispatch receipt</h1>
+    <button type="button" onclick="window.print()">Print receipt</button>
+  </div>
+  <pre class="receipt">{{ receipt }}</pre>
+{% endblock %}

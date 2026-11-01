@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Add stock · Medical Dispatch{% endblock %}
+{% block content %}
+  <h1>Add stock batch</h1>
+  {% if medicines %}
+    <form method="post" class="form-card">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Medicine
+        <select name="medicine_id" required>
+          <option value="">Choose medicine</option>
+          {% for medicine in medicines %}
+            <option value="{{ medicine.medicine_id }}">{{ medicine.brand_name }} (ID {{ medicine.medicine_id }})</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Batch number<input name="batch_number" required maxlength="100"></label>
+      <label>Expiry date<input type="date" name="expiry_date" required></label>
+      <label>Quantity<input type="number" name="quantity" min="1" step="1" required></label>
+      <label>MRP per unit<input type="number" name="mrp" min="0" step="0.01" required></label>
+      <label>Purchase price per unit<input type="number" name="purchase_price" min="0" step="0.01" required></label>
+      <button type="submit">Add batch</button>
+    </form>
+  {% else %}
+    <p class="empty">Add a medicine before adding its stock.</p>
+  {% endif %}
+{% endblock %}

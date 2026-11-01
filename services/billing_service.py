@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from datetime import date, datetime
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
@@ -23,6 +24,17 @@ class ReceiptWriteError(RuntimeError):
 
 CENT = Decimal("0.01")
 RECEIPTS_DIRECTORY = Path(__file__).resolve().parents[1] / "receipts"
+
+
+def _print_receipt(receipt: str) -> None:
+    try:
+        print(receipt, end="")
+    except UnicodeEncodeError:
+        encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+        safe_receipt = receipt.encode(encoding, errors="backslashreplace").decode(
+            encoding
+        )
+        sys.stdout.write(safe_receipt)
 
 
 def _validate_cart(shop_name: str, cart_items: list[CartItem]) -> None:
@@ -89,12 +101,18 @@ def _format_receipt(
     return "\n".join(output) + "\n"
 
 
-def process_dispatch_bill(shop_name: str, cart_items: list[CartItem]) -> str:
+def process_dispatch_bill(
+    shop_id: int,
+    shop_name: str,
+    cart_items: list[CartItem],
+) -> str:
     """Deduct stock in FEFO order, create an invoice, then print/save its receipt.
 
     Each cart item has ``medicine_id`` and ``quantity`` keys. Standard medicine
     receives 30% off batch MRP; generic medicine receives 70% off.
     """
+    if shop_id <= 0:
+        raise ValueError("Shop ID must be a positive integer.")
     _validate_cart(shop_name, cart_items)
 
     connection = get_connection()
@@ -104,10 +122,10 @@ def process_dispatch_bill(shop_name: str, cart_items: list[CartItem]) -> str:
         cursor = connection.cursor(dictionary=True)
         cursor.execute(
             """
-            INSERT INTO sales_invoices (shop_name, sale_date, total_amount)
-            VALUES (%s, CURRENT_TIMESTAMP, %s)
+            INSERT INTO sales_invoices (shop_id, shop_name, sale_date, total_amount)
+            VALUES (%s, %s, CURRENT_TIMESTAMP, %s)
             """,
-            (shop_name.strip(), Decimal("0.00")),
+            (shop_id, shop_name.strip(), Decimal("0.00")),
         )
         invoice_id = int(cursor.lastrowid)
 
@@ -119,9 +137,9 @@ def process_dispatch_bill(shop_name: str, cart_items: list[CartItem]) -> str:
                 """
                 SELECT medicine_category
                 FROM medicines
-                WHERE medicine_id = %s
+                WHERE medicine_id = %s AND shop_id = %s
                 """,
-                (item["medicine_id"],),
+                (item["medicine_id"], shop_id),
             )
             medicine = cursor.fetchone()
             if medicine is None:
@@ -153,10 +171,11 @@ def process_dispatch_bill(shop_name: str, cart_items: list[CartItem]) -> str:
                 WHERE b.medicine_id = %s
                   AND b.expiry_date >= CURRENT_DATE
                   AND b.quantity > 0
+                  AND m.shop_id = %s
                 ORDER BY b.expiry_date ASC, b.batch_id ASC
                 FOR UPDATE
                 """,
-                (item["medicine_id"],),
+                (item["medicine_id"], shop_id),
             )
             batches = cursor.fetchall()
 
@@ -264,6 +283,62 @@ def process_dispatch_bill(shop_name: str, cart_items: list[CartItem]) -> str:
             f"saved to {receipt_path}: {exc}"
         ) from exc
 
-    print(receipt, end="")
-    print(f"Receipt saved to: {receipt_path}")
+    _print_receipt(receipt)
+    print(f"Receipt saved: receipts/invoice_{invoice_id}.txt")
     return receipt
+
+
+def get_invoice_receipt(invoice_id: int, shop_id: int) -> str:
+    """Rebuild a committed invoice receipt from its persisted database records."""
+    if invoice_id <= 0 or shop_id <= 0:
+        raise ValueError("Invoice ID and shop ID must be positive integers.")
+
+    connection = get_connection()
+    try:
+        cursor = connection.cursor(dictionary=True)
+        try:
+            cursor.execute(
+                """
+                SELECT invoice_id, shop_name, sale_date, total_amount
+                FROM sales_invoices
+                WHERE invoice_id = %s AND shop_id = %s
+                """,
+                (invoice_id, shop_id),
+            )
+            invoice = cursor.fetchone()
+            if invoice is None:
+                raise ValueError(f"Invoice {invoice_id} was not found.")
+
+            cursor.execute(
+                """
+                SELECT
+                    m.brand_name,
+                    b.batch_number,
+                    si.quantity_sold,
+                    si.mrp,
+                    si.discount_percent,
+                    si.unit_price,
+                    (si.quantity_sold * si.unit_price) AS line_total
+                FROM sale_items AS si
+                INNER JOIN inventory_batches AS b ON b.batch_id = si.batch_id
+                INNER JOIN medicines AS m ON m.medicine_id = b.medicine_id
+                WHERE si.invoice_id = %s
+                ORDER BY si.item_id
+                """,
+                (invoice_id,),
+            )
+            lines = list(cursor.fetchall())
+            if not lines:
+                raise ValueError(f"Invoice {invoice_id} has no sale items.")
+
+            return _format_receipt(
+                int(invoice["invoice_id"]),
+                invoice["sale_date"],
+                invoice["shop_name"],
+                lines,
+                Decimal(invoice["total_amount"]),
+            )
+        finally:
+            cursor.close()
+    finally:
+        connection.close()

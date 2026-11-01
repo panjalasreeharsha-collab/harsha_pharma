@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Set category · Medical Dispatch{% endblock %}
+{% block content %}
+  <h1>Set medicine category</h1>
+  {% if medicines %}
+    <form method="post" class="form-card">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label>Medicine
+        <select name="medicine_id" required>
+          <option value="">Choose medicine</option>
+          {% for medicine in medicines %}
+            <option value="{{ medicine.medicine_id }}">{{ medicine.brand_name }} (ID {{ medicine.medicine_id }}) — {{ medicine.medicine_category or "Unassigned" }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Category
+        <select name="medicine_category" required>
+          <option value="">Choose category</option>
+          <option value="standard">Standard — 30% off MRP</option>
+          <option value="generic">Generic — 70% off MRP</option>
+        </select>
+      </label>
+      <button type="submit">Save category</button>
+    </form>
+  {% else %}
+    <p class="empty">Add a medicine before setting its category.</p>
+  {% endif %}
+{% endblock %}

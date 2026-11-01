@@ -1,8 +1,9 @@
 # Medical Stock Dispatch and Billing
 
-A Python CLI backed by MySQL. Dispatches consume unexpired inventory batches in
-First Expired, First Out (FEFO) order. Invoice creation, sale-item insertion,
-and stock deduction are committed or rolled back together.
+A Python application backed by MySQL, with a local CLI and an authenticated
+browser interface. Dispatches consume unexpired inventory batches in First
+Expired, First Out (FEFO) order. Invoice creation, sale-item insertion, and
+stock deduction are committed or rolled back together.
 
 ## Setup
 
@@ -11,10 +12,10 @@ and stock deduction are committed or rolled back together.
    needs permission to create tables):
 
    ```sh
-   mysql -u root -p --database=medical_dispatch < sql/schema.sql
+   mysql -u your_mysql_user -p --database=your_database_name < sql/schema.sql
    ```
 
-   Replace `medical_dispatch` with the value of `MYSQL_DATABASE`.
+   Replace the user and database placeholders with your MySQL values.
 
 2. Create and activate a virtual environment, then install dependencies:
 
@@ -25,21 +26,57 @@ and stock deduction are committed or rolled back together.
    pip install -r requirements.txt
    ```
 
-3. Copy `.env.example` to `.env` and set the MySQL connection values. Do not
-   commit `.env`.
-4. For an existing database, run
-   `sql/migrations/001_add_medicine_categories_and_discounts.sql` once. Use CLI
-   option 5 to categorize every existing medicine as standard or generic;
-   dispatch is blocked for medicines that are not categorized. Once all
-   medicines have a category, the optional `ALTER TABLE` statement at the end
-   of the migration can be run to enforce the category in MySQL as well.
-   Existing sale items retain their recorded rate and receive no retroactive
-   discount.
-5. Start the CLI:
+3. Copy `.env.example` to `.env` and set the MySQL connection values. To use
+   the web app, also set a randomly generated `FLASK_SECRET_KEY`. Do not
+   commit `.env`; shop owners create their own accounts on the signup page.
+4. For an existing database without the category/discount columns, run
+   `sql/migrations/001_add_medicine_categories_and_discounts.sql` once.
+   Then run `sql/migrations/002_add_shop_accounts.sql` once to enable
+   independent shop accounts. The first shop to sign up claims existing
+   unassigned medicines and invoices; subsequent shops only see their own
+   records. Existing sale items retain their recorded rate and receive no
+   retroactive discount.
+5. To use the local CLI, run `python app.py --help` to list the available
+   commands. For example:
 
    ```sh
-   python app.py
+   python app.py view-stock
    ```
+
+   Use `python app.py add-medicine`, `python app.py add-stock`,
+   `python app.py set-category`, and `python app.py issue-bill` for the other
+   operations. Each command prompts for your shop email and password. Create
+   the account first through the signup page. To run that page locally, start
+   the development server with `flask --app web_app run` and open
+   `http://127.0.0.1:5000`.
+
+## Deploy as a Render web service
+
+The CLI in `app.py` is interactive and is not a web server. The Render web
+service uses the Flask WSGI application in `web_app.py` instead.
+
+- Connect this repository to Render as a **Web Service**.
+- Set the build command to `pip install -r requirements.txt`.
+- Set the start command to:
+
+  ```sh
+  gunicorn web_app:app --bind 0.0.0.0:$PORT
+  ```
+
+- In Render's environment settings, configure `MYSQL_HOST`, `MYSQL_PORT`,
+  `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE`, and `FLASK_SECRET_KEY`.
+  Use the connection details from your hosted MySQL provider; do not upload
+  `database.env` or `.env`.
+- If Render asks for a root directory, use the repository root containing
+  `render.yaml`, `requirements.txt`, and `web_app.py`.
+- Set the health check path to `/healthz`. It checks that MySQL is reachable.
+- Make sure the configured remote database already has the tables from
+  `sql/schema.sql` (or both required migrations for an existing database) and
+  accepts connections from Render.
+
+Each pharmacy signs in with its own email and password. Passwords are stored
+as hashes, shop inventory and invoices are isolated by account, and forms use
+CSRF protection. Use the service over HTTPS.
 
 ## Dispatch behavior
 

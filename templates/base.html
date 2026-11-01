@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Medical Dispatch{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <header>
+      <a class="brand" href="{{ url_for('index') }}">Medical Dispatch</a>
+      {% if session.get("shop_id") %}
+        <nav aria-label="Main navigation">
+          <span>{{ current_shop_name }}</span>
+          <a href="{{ url_for('index') }}">Stock</a>
+          <a href="{{ url_for('medicine_create') }}">Add medicine</a>
+          <a href="{{ url_for('stock_create') }}">Add stock</a>
+          <a href="{{ url_for('category_update') }}">Set category</a>
+          <a href="{{ url_for('dispatch') }}">New dispatch</a>
+          <form method="post" action="{{ url_for('logout') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="link-button">Sign out</button>
+          </form>
+        </nav>
+      {% else %}
+        <nav aria-label="Account navigation">
+          <a href="{{ url_for('login') }}">Sign in</a>
+          <a href="{{ url_for('signup') }}">Create shop account</a>
+        </nav>
+      {% endif %}
+    </header>
+    <main>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="notice {{ category }}" role="status">{{ message }}</div>
+        {% endfor %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

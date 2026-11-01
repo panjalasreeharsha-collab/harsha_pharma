@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Add medicine · Medical Dispatch{% endblock %}
+{% block content %}
+  <h1>Add medicine</h1>
+  <form method="post" class="form-card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Brand name<input name="brand_name" required maxlength="150"></label>
+    <label>Generic name<input name="generic_name" required maxlength="150"></label>
+    <label>Manufacturer<input name="manufacturer" required maxlength="150"></label>
+    <label>Unit type<input name="unit_type" placeholder="tablet, syrup, etc." required maxlength="50"></label>
+    <label>Category
+      <select name="medicine_category" required>
+        <option value="">Choose category</option>
+        <option value="standard">Standard — 30% off MRP</option>
+        <option value="generic">Generic — 70% off MRP</option>
+      </select>
+    </label>
+    <button type="submit">Add medicine</button>
+  </form>
+{% endblock %}

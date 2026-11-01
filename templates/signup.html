@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Create shop account · Medical Dispatch{% endblock %}
+{% block content %}
+  <h1>Create your pharmacy account</h1>
+  <p class="hint">Your inventory and invoices will be private to your shop.</p>
+  <form method="post" class="form-card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Pharmacy name
+      <input name="shop_name" autocomplete="organization" maxlength="200" required>
+    </label>
+    <label>Owner name
+      <input name="owner_name" autocomplete="name" maxlength="150" required>
+    </label>
+    <label>Email
+      <input type="email" name="email" autocomplete="email" maxlength="254" required>
+    </label>
+    <label>Password
+      <input type="password" name="password" autocomplete="new-password" minlength="12" maxlength="256" required>
+    </label>
+    <p class="hint">Use at least 12 characters. Passwords are stored as hashes.</p>
+    <button type="submit">Create account</button>
+  </form>
+  <p>Already registered? <a href="{{ url_for('login') }}">Sign in</a>.</p>
+{% endblock %}

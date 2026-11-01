@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Sign in · Medical Dispatch{% endblock %}
+{% block content %}
+  <h1>Sign in to your shop</h1>
+  <p class="hint">Use the email and password registered for your pharmacy.</p>
+  <form method="post" class="form-card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if session.get("next_url") %}
+      <input type="hidden" name="next" value="{{ session.get('next_url') }}">
+    {% endif %}
+    <label>Email
+      <input type="email" name="email" autocomplete="username" maxlength="254" required>
+    </label>
+    <label>Password
+      <input type="password" name="password" autocomplete="current-password" maxlength="256" required>
+    </label>
+    <button type="submit">Sign in</button>
+  </form>
+  <p>New here? <a href="{{ url_for('signup') }}">Create a shop account</a>.</p>
+{% endblock %}

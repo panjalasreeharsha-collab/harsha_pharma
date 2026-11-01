@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from datetime import date
 from decimal import Decimal, InvalidOperation
+from getpass import getpass
 
 import typer
 from mysql.connector import Error as MySQLConnectorError
 
+from services.account_service import authenticate_shop
 from services.billing_service import CartItem, process_dispatch_bill
 from services.inventory_service import (
     add_batch_stock,
@@ -18,6 +20,16 @@ from services.inventory_service import (
 
 # Expose the app attribute for deployment and CLI entrypoints
 app = typer.Typer(help="Medical Stock Dispatch and Billing CLI")
+
+
+def _authenticate_cli_shop() -> int:
+    email = typer.prompt("Shop email")
+    password = getpass("Password: ")
+    account = authenticate_shop(email, password)
+    if account is None:
+        typer.echo("Email or password is incorrect.", err=True)
+        raise typer.Exit(code=1)
+    return int(account["shop_id"])
 
 
 def _read_positive_integer(prompt: str) -> int:
@@ -45,9 +57,11 @@ def _read_price(prompt: str) -> Decimal:
 @app.command("add-medicine")
 def _add_medicine() -> None:
     """Add a new medicine to the inventory."""
-    medicine_category = input("Category (standard/generic): ").strip().lower()
     try:
+        shop_id = _authenticate_cli_shop()
+        medicine_category = input("Category (standard/generic): ").strip().lower()
         medicine_id = add_medicine(
+            shop_id,
             input("Brand name: ").strip(),
             input("Generic name: ").strip(),
             input("Manufacturer: ").strip(),
@@ -65,10 +79,11 @@ def _add_medicine() -> None:
 @app.command("set-category")
 def _set_category() -> None:
     """Update the category of an existing medicine."""
-    medicine_id = _read_positive_integer("Medicine ID: ")
-    category = input("Category (standard/generic): ").strip().lower()
     try:
-        set_medicine_category(medicine_id, category)
+        shop_id = _authenticate_cli_shop()
+        medicine_id = _read_positive_integer("Medicine ID: ")
+        category = input("Category (standard/generic): ").strip().lower()
+        set_medicine_category(shop_id, medicine_id, category)
         typer.echo(f"Medicine {medicine_id} category updated to {category}.")
     except (ValueError, RuntimeError, MySQLConnectorError) as exc:
         typer.echo(f"Error: {exc}")
@@ -77,15 +92,22 @@ def _set_category() -> None:
 @app.command("add-stock")
 def _add_stock() -> None:
     """Add a new stock batch for a medicine."""
-    medicine_id = _read_positive_integer("Medicine ID: ")
-    batch_number = input("Batch number: ").strip()
-    expiry_date = date.fromisoformat(input("Expiry date (YYYY-MM-DD): ").strip())
-    quantity = _read_positive_integer("Quantity: ")
-    mrp = _read_price("Selling rate / MRP per unit: ")
-    purchase_price = _read_price("Purchase price per unit: ")
     try:
+        shop_id = _authenticate_cli_shop()
+        medicine_id = _read_positive_integer("Medicine ID: ")
+        batch_number = input("Batch number: ").strip()
+        expiry_date = date.fromisoformat(input("Expiry date (YYYY-MM-DD): ").strip())
+        quantity = _read_positive_integer("Quantity: ")
+        mrp = _read_price("Selling rate / MRP per unit: ")
+        purchase_price = _read_price("Purchase price per unit: ")
         batch_id = add_batch_stock(
-            medicine_id, batch_number, expiry_date, quantity, mrp, purchase_price
+            shop_id,
+            medicine_id,
+            batch_number,
+            expiry_date,
+            quantity,
+            mrp,
+            purchase_price,
         )
         typer.echo(f"Stock batch added with ID {batch_id}.")
     except (ValueError, RuntimeError, MySQLConnectorError) as exc:
@@ -96,7 +118,8 @@ def _add_stock() -> None:
 def _view_stock() -> None:
     """View current stock levels and batch details."""
     try:
-        stock_levels = get_stock_levels()
+        shop_id = _authenticate_cli_shop()
+        stock_levels = get_stock_levels(shop_id)
         if not stock_levels:
             typer.echo("No medicines found.")
             return
@@ -123,35 +146,35 @@ def _view_stock() -> None:
 @app.command("issue-bill")
 def _issue_bill() -> None:
     """Process a dispatch bill for a medical shop."""
-    shop_name = input("Medical shop name: ").strip()
-    cart_items: list[CartItem] = []
-    while True:
-        try:
-            medicine_id = int(
-                input("Medicine ID (0 to finish adding items): ").strip()
-            )
-        except ValueError:
-            typer.echo("Enter a positive whole number, or 0 to finish.")
-            continue
-        if medicine_id == 0:
-            if cart_items:
-                break
-            typer.echo("Add at least one medicine before finishing the cart.")
-            continue
-        if medicine_id < 0:
-            typer.echo("Enter a positive medicine ID.")
-            continue
-        cart_items.append(
-            {
-                "medicine_id": medicine_id,
-                "quantity": _read_positive_integer("Quantity: "),
-            }
-        )
-        if input("Add another medicine? [y/N]: ").strip().lower() != "y":
-            break
-            
     try:
-        process_dispatch_bill(shop_name, cart_items)
+        shop_id = _authenticate_cli_shop()
+        shop_name = input("Medical shop name to bill: ").strip()
+        cart_items: list[CartItem] = []
+        while True:
+            try:
+                medicine_id = int(
+                    input("Medicine ID (0 to finish adding items): ").strip()
+                )
+            except ValueError:
+                typer.echo("Enter a positive whole number, or 0 to finish.")
+                continue
+            if medicine_id == 0:
+                if cart_items:
+                    break
+                typer.echo("Add at least one medicine before finishing the cart.")
+                continue
+            if medicine_id < 0:
+                typer.echo("Enter a positive medicine ID.")
+                continue
+            cart_items.append(
+                {
+                    "medicine_id": medicine_id,
+                    "quantity": _read_positive_integer("Quantity: "),
+                }
+            )
+            if input("Add another medicine? [y/N]: ").strip().lower() != "y":
+                break
+        process_dispatch_bill(shop_id, shop_name, cart_items)
         typer.echo("Dispatch bill successfully processed.")
     except (ValueError, RuntimeError, MySQLConnectorError) as exc:
         typer.echo(f"Error: {exc}")
