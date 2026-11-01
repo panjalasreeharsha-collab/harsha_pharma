@@ -28,6 +28,10 @@
       <strong>Set medicine category</strong>
       <span>Update the standard or generic category used for shop dispatch.</span>
     </a>
+    <a class="action-card secondary-action" href="{{ url_for('invoice_history') }}">
+      <strong>Bill history</strong>
+      <span>Find past customer bills and pharmacy dispatch invoices.</span>
+    </a>
   </section>
   {% if stock_levels %}
     <div class="table-wrap">

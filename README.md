@@ -102,6 +102,9 @@ For application code, call
 
 - The inventory page provides main-content action cards for adding medicines
   and stock, creating customer bills, and creating separate shop dispatches.
+- Dispatch item selection displays the medicine's saved standard/generic type
+  and matching discount automatically; the type is assigned when adding or
+  editing a medicine, not entered again for each bill.
 - Each stock batch stores optional manufacturing date, expiry date, MRP,
   purchase price, GST percentage, and discount percentage.
 - Customer bills record customer name, mobile number, address, bill date, and
@@ -111,3 +114,5 @@ For application code, call
   the discounted amount. The printable bill shows MRP, discount, GST, final
   rate, batch dates, quantity, and grand total. Open the saved bill and click
   **Print bill** to print it.
+- Bill history lists both customer bills and pharmacy dispatch invoices and
+  links to each printable bill.

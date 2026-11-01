@@ -30,6 +30,7 @@ from services.customer_billing_service import (
     create_customer_invoice,
     get_customer_invoice,
 )
+from services.invoice_history_service import get_invoice_history
 from services.inventory_service import (
     add_batch_stock,
     add_medicine,
@@ -484,3 +485,13 @@ def customer_invoice_view(invoice_id: int) -> str:
         app.logger.exception("Could not load customer invoice %s", invoice_id)
         abort(503, description="Database unavailable. Check the server logs.")
     return render_template("customer_receipt.html", invoice=invoice)
+
+
+@app.get("/invoice-history")
+def invoice_history() -> str:
+    try:
+        invoices = get_invoice_history(_shop_id())
+    except mysql.connector.Error:
+        app.logger.exception("Could not load invoice history")
+        abort(503, description="Database unavailable. Check the server logs.")
+    return render_template("invoice_history.html", invoices=invoices)

@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Bill history · Medical Dispatch{% endblock %}
+{% block content %}
+  <div class="page-heading">
+    <div>
+      <h1>Bill history</h1>
+      <p>Customer bills and pharmacy dispatch invoices, newest first.</p>
+    </div>
+  </div>
+  {% if invoices %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Bill #</th><th>Type</th><th>Date</th><th>Customer / shop</th><th>Total</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for invoice in invoices %}
+            <tr>
+              <td>{{ invoice.invoice_id }}</td>
+              <td>{{ invoice.invoice_type }}</td>
+              <td>{{ invoice.sale_date }}</td>
+              <td>{{ invoice.billed_to }}</td>
+              <td>{{ "%.2f"|format(invoice.total_amount) }}</td>
+              <td>
+                {% if invoice.invoice_type == "Customer sale" %}
+                  <a href="{{ url_for('customer_invoice_view', invoice_id=invoice.invoice_id) }}">View bill</a>
+                {% else %}
+                  <a href="{{ url_for('invoice_view', invoice_id=invoice.invoice_id) }}">View bill</a>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="empty">No bills yet. Completed customer and shop bills will appear here.</p>
+  {% endif %}
+{% endblock %}

@@ -14,15 +14,36 @@
             <select name="medicine_id">
               <option value="">Choose medicine</option>
               {% for medicine in medicines %}
-                <option value="{{ medicine.medicine_id }}">{{ medicine.brand_name }} — {{ medicine.medicine_category }} (ID {{ medicine.medicine_id }})</option>
+                <option
+                  value="{{ medicine.medicine_id }}"
+                  data-category="{{ medicine.medicine_category }}"
+                  data-discount="{{ 30 if medicine.medicine_category == 'standard' else 70 }}"
+                >{{ medicine.brand_name }} (ID {{ medicine.medicine_id }})</option>
               {% endfor %}
             </select>
+          </label>
+          <label>Type and discount (automatic)
+            <input class="medicine-category-display" type="text" readonly placeholder="Select a medicine">
           </label>
           <label>Quantity<input type="number" name="quantity" min="1" step="1"></label>
         </fieldset>
       {% endfor %}
       <button type="submit">Create bill</button>
     </form>
+    <script>
+      document.querySelectorAll(".cart-row").forEach((row) => {
+        const medicine = row.querySelector('select[name="medicine_id"]');
+        const details = row.querySelector(".medicine-category-display");
+        const updateMedicineDetails = () => {
+          const option = medicine.selectedOptions[0];
+          details.value = option.dataset.category
+            ? `${option.dataset.category} — ${option.dataset.discount}% discount`
+            : "";
+        };
+        medicine.addEventListener("change", updateMedicineDetails);
+        updateMedicineDetails();
+      });
+    </script>
   {% else %}
     <p class="empty">Add and categorize a medicine before creating a dispatch.</p>
   {% endif %}

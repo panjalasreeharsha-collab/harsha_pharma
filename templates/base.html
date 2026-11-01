@@ -13,6 +13,7 @@
         <nav aria-label="Main navigation">
           <span>{{ current_shop_name() }}</span>
           <a href="{{ url_for('index') }}">Stock</a>
+          <a href="{{ url_for('invoice_history') }}">Bill history</a>
           <form method="post" action="{{ url_for('logout') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <button type="submit" class="link-button">Sign out</button>
